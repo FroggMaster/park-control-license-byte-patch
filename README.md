@@ -47,7 +47,7 @@ All patches are located at runtime via masked byte pattern search, so they survi
 
 ## Updating for a New Version
 
-Run the pattern checker first — if all three show OK no changes are needed:
+Run the pattern checker first if all three show OK no changes are needed:
 
     .\tools\find_patches.ps1 "C:\Program Files\Bitsum\ParkControl\ParkControl.exe"
 
