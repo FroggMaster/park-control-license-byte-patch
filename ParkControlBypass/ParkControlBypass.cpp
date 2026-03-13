@@ -6,21 +6,22 @@
 #include <iomanip>
 #include <chrono>
 #include "MinHook/MinHook.h"
+#include "version_proxy.h"
 
 #pragma comment(lib, "Psapi.lib")
 
 namespace {
-    // Signature for sub_140004B80 (main function)
-    const uint8_t k_process_license_pattern[] = { 0x48, 0x89, 0x5C, 0x24, 0x20, 0x44 };
-    const uint8_t k_process_license_mask[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+    // Signature for sub_140004FA0 (main function)
+    const uint8_t k_process_license_pattern[] = { 0x48, 0x8B, 0xC4, 0x4C, 0x89, 0x48, 0x20, 0x44 };
+    const uint8_t k_process_license_mask[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
     const size_t k_process_license_pattern_size = sizeof(k_process_license_pattern);
 
-    // Signature for sub_140002E90
+    // Signature for sub_140002E50
     const uint8_t k_sub_140002E90_pattern[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x65 };
     const uint8_t k_sub_140002E90_mask[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
     const size_t k_sub_140002E90_pattern_size = sizeof(k_sub_140002E90_pattern);
 
-    // Signature for sub_140003470
+    // Signature for sub_140003440
     const uint8_t k_sub_140003470_pattern[] = { 0x48, 0x83, 0xEC, 0x28, 0x8B, 0xD1 };
     const uint8_t k_sub_140003470_mask[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
     const size_t k_sub_140003470_pattern_size = sizeof(k_sub_140003470_pattern);
@@ -109,25 +110,34 @@ void* find_pattern(HMODULE module, const uint8_t* pattern, const uint8_t* mask, 
 }
 
 // Hooked version of process_license
-uint8_t __fastcall hooked_process_license(int64_t request_context, int64_t license_key, char is_activation, int64_t* output_license) {
+static uint8_t __fastcall hooked_process_license(int64_t request_context, int64_t license_key, char is_activation, int64_t* output_license) {
+    debug_log("hooked_process_license: ENTER - hook fired");
+
     std::ostringstream oss;
-    oss << "hooked_process_license: Called with license_key=0x" << std::hex << license_key;
+    oss << "hooked_process_license: request_context=0x" << std::hex << request_context
+        << " license_key=0x" << license_key
+        << " is_activation=" << static_cast<int>(is_activation);
     debug_log(oss.str());
 
     uint8_t v5 = 1; // Force success return value
 
     int64_t v18 = sub_140002E90();
     if (!v18) {
+        debug_log("hooked_process_license: sub_140002E90 returned null, calling sub_140003470");
         sub_140003470(2147500037i64);
         return 0;
     }
+
+    debug_log("hooked_process_license: sub_140002E90 succeeded, patching output");
 
     if (output_license) {
         try {
             int64_t* v33 = (int64_t*)((*(int64_t(__fastcall**)(int64_t))(*(uint64_t*)v18 + 24i64))(v18) + 24);
             *output_license = (int64_t)(v33 + 6);
+            debug_log("hooked_process_license: output_license patched successfully");
         }
         catch (...) {
+            debug_log("hooked_process_license: EXCEPTION patching output_license");
             return 0;
         }
     }
@@ -136,12 +146,15 @@ uint8_t __fastcall hooked_process_license(int64_t request_context, int64_t licen
         try {
             *(DWORD*)(request_context + 24) = 1;
             *(BYTE*)(request_context + 48) = 0;
+            debug_log("hooked_process_license: request_context patched successfully");
         }
         catch (...) {
+            debug_log("hooked_process_license: EXCEPTION patching request_context");
             return 0;
         }
     }
 
+    debug_log("hooked_process_license: returning success");
     return v5;
 }
 
@@ -222,6 +235,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason_for_call, LPVOID reserved) {
     switch (reason_for_call) {
     case DLL_PROCESS_ATTACH:
         g_hmodule = module;
+        version_proxy::load();
         DisableThreadLibraryCalls(module);
         g_main_thread = CreateThread(nullptr, 0, main_thread, nullptr, 0, nullptr);
         if (!g_main_thread) {
@@ -235,6 +249,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason_for_call, LPVOID reserved) {
             WaitForSingleObject(g_main_thread, 1000);
             CloseHandle(g_main_thread);
         }
+        version_proxy::unload();
         break;
     }
     return TRUE;
