@@ -51,4 +51,4 @@ Run the pattern checker first if all three show OK no changes are needed:
 
     .\tools\find_patches.ps1 "C:\Program Files\Bitsum\ParkControl\ParkControl.exe"
 
-If any pattern shows FAIL, follow `tools\IDA_UPDATE_GUIDE.md` to regenerate it. **(WIP Document Not Yet Available)**
+If any pattern shows FAIL, follow [IDA Signature Update Guide](tools/IDA_SIG_UPDATE_GUIDE.md) to regenerate it.
